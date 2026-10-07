@@ -85,3 +85,9 @@ const STATUS_TRANSITIONS = {
   "Claimed": [],
   "Rejected": []
 };
+
+// Is the text in the reference number format, e.g. "REQ-2026-0001"?
+// This only checks the FORMAT. It does not check if the request exists.
+function isValidReferenceFormat(text) {
+  return /^REQ-\d{4}-\d{4}$/.test(text);
+}

@@ -8,6 +8,12 @@ const feePreview = document.getElementById("fee-preview");
 const releasePreview = document.getElementById("release-preview");
 const tableBody = document.getElementById("request-table-body");
 
+// The ids of the form fields (used to clear and mark errors).
+const FORM_FIELD_IDS = ["student-name", "student-id", "course", "document-type", "purpose"];
+
+// A student cannot send the same document again while a request is in these statuses.
+const ACTIVE_STATUSES = ["Submitted", "Processing"];
+
 // ===== Small helpers =====
 
 // Show a success or error message in a message box.
@@ -40,29 +46,131 @@ function updatePreview() {
   releasePreview.textContent = formatDate(toDateString(releaseDate));
 }
 
+// ===== Form validation =====
+
+// Remove the red border from every form field.
+function clearFieldErrors() {
+  FORM_FIELD_IDS.forEach(function (id) {
+    document.getElementById(id).classList.remove("input-error");
+  });
+}
+
+// Read the form values into one object (text is trimmed).
+function readRequestForm() {
+  return {
+    studentName: document.getElementById("student-name").value.trim(),
+    studentId: document.getElementById("student-id").value.trim(),
+    course: document.getElementById("course").value.trim(),
+    documentType: documentTypeSelect.value,
+    purpose: document.getElementById("purpose").value.trim()
+  };
+}
+
+// Does this student already have an active request for the same document?
+// Student IDs are compared without caring about upper/lower case.
+function hasDuplicateRequest(requests, studentId, documentType) {
+  return requests.some(function (request) {
+    return request.studentId.toLowerCase() === studentId.toLowerCase() &&
+      request.documentType === documentType &&
+      ACTIVE_STATUSES.includes(request.status);
+  });
+}
+
+// Check the form data. Returns a list of errors.
+// Each error is { fieldId, message }. An empty list means the data is valid.
+function validateRequestForm(data, requests) {
+  const errors = [];
+
+  function addError(fieldId, message) {
+    errors.push({ fieldId: fieldId, message: message });
+  }
+
+  // Student name
+  if (data.studentName === "") {
+    addError("student-name", "Student name is required.");
+  } else if (data.studentName.length < 2 || data.studentName.length > 60) {
+    addError("student-name", "Student name must be 2 to 60 characters long.");
+  } else if (!/^[A-Za-z\u00D1\u00F1][A-Za-z\u00D1\u00F1 .'-]*$/.test(data.studentName)) {
+    addError("student-name", "Student name may only contain letters, spaces, periods, hyphens, and apostrophes.");
+  }
+
+  // Student ID (format like 2026-001)
+  if (data.studentId === "") {
+    addError("student-id", "Student ID is required.");
+  } else if (!/^\d{4}-\d{3,5}$/.test(data.studentId)) {
+    addError("student-id", "Student ID must look like 2026-001 (4 digits, a dash, then 3 to 5 digits).");
+  }
+
+  // Course
+  if (data.course === "") {
+    addError("course", "Course is required.");
+  } else if (data.course.length < 2 || data.course.length > 50) {
+    addError("course", "Course must be 2 to 50 characters long.");
+  } else if (!/^[A-Za-z0-9 .&-]+$/.test(data.course)) {
+    addError("course", "Course may only contain letters, numbers, spaces, periods, hyphens, and &.");
+  }
+
+  // Document type (must be one of the 3 real document types)
+  if (data.documentType === "") {
+    addError("document-type", "Please select a document type.");
+  } else if (!Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, data.documentType)) {
+    addError("document-type", "The selected document type is not valid.");
+  }
+
+  // Purpose
+  if (data.purpose === "") {
+    addError("purpose", "Purpose is required.");
+  } else if (data.purpose.length < 5 || data.purpose.length > 200) {
+    addError("purpose", "Purpose must be 5 to 200 characters long.");
+  }
+
+  // Duplicate check. Only done when the ID and document type are already valid.
+  if (errors.length === 0 && hasDuplicateRequest(requests, data.studentId, data.documentType)) {
+    addError(
+      "document-type",
+      "Student ID " + data.studentId + " already has a " + data.documentType +
+      " request that is still Submitted or Processing. Please wait until it is finished."
+    );
+  }
+
+  return errors;
+}
+
+// Show all validation errors in the message box and mark the bad fields in red.
+function showValidationErrors(errors) {
+  const lines = errors.map(function (error) {
+    document.getElementById(error.fieldId).classList.add("input-error");
+    return "\u2022 " + error.message;
+  });
+
+  showMessage("request-message", "error", "Please fix the following:\n" + lines.join("\n"));
+}
+
 // ===== Create a request =====
 function handleRequestSubmit(event) {
   event.preventDefault();   // stop the page from reloading
+  clearFieldErrors();
 
-  const documentType = documentTypeSelect.value;
-  const documentInfo = DOCUMENT_TYPES[documentType];
+  const requests = getRequests();
+  const formData = readRequestForm();
 
-  // Temporary safety check. Full validation comes in Step 8.
-  if (!documentInfo) {
-    showMessage("request-message", "error", "Please select a document type.");
+  // Stop here if anything is wrong. Nothing is saved.
+  const errors = validateRequestForm(formData, requests);
+  if (errors.length > 0) {
+    showValidationErrors(errors);
     return;
   }
 
-  const requests = getRequests();
+  const documentInfo = DOCUMENT_TYPES[formData.documentType];
   const today = new Date();
 
   const newRequest = {
     referenceNumber: generateReferenceNumber(requests),
-    studentName: document.getElementById("student-name").value.trim(),
-    studentId: document.getElementById("student-id").value.trim(),
-    course: document.getElementById("course").value.trim(),
-    documentType: documentType,
-    purpose: document.getElementById("purpose").value.trim(),
+    studentName: formData.studentName,
+    studentId: formData.studentId,
+    course: formData.course,
+    documentType: formData.documentType,
+    purpose: formData.purpose,
     dateRequested: toDateString(today),
     status: "Submitted",
     expectedReleaseDate: toDateString(addWorkingDays(today, documentInfo.processingDays)),

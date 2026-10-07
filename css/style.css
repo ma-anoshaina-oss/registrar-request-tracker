@@ -251,3 +251,16 @@ tbody tr:nth-child(even) {
   color: #666;
   font-size: 0.85rem;
 }
+
+/* ===== Validation styles ===== */
+
+/* Lets error messages show several lines (we separate them with new lines) */
+.message {
+  white-space: pre-line;
+}
+
+/* Red border on an input that failed validation */
+.input-error {
+  border-color: #c0392b;
+  background-color: #fff5f4;
+}
