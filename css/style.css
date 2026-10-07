@@ -212,6 +212,13 @@ tbody tr:nth-child(even) {
   font-weight: bold;
   color: #fff;
 }
+/* ===== Rejection reason shown under the status badge ===== */
+.reject-reason {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #a8281c;
+}
 
 .badge-submitted        { background-color: #7f8c8d; }
 .badge-processing       { background-color: #2b7bb9; }

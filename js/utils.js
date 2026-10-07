@@ -75,3 +75,13 @@ function generateReferenceNumber(requests) {
   // Add 1 and pad with zeros to 4 digits.
   return prefix + String(highestNumber + 1).padStart(4, "0");
 }
+
+// Allowed status changes. Each status lists the statuses it may move to.
+// An empty list means the status is final.
+const STATUS_TRANSITIONS = {
+  "Submitted": ["Processing", "Rejected"],
+  "Processing": ["Ready for Pickup", "Rejected"],
+  "Ready for Pickup": ["Claimed"],
+  "Claimed": [],
+  "Rejected": []
+};

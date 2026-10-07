@@ -86,6 +86,107 @@ function handleRequestSubmit(event) {
   renderRegistrarTable();
 }
 
+// ===== Status rules =====
+
+// Is moving from currentStatus to newStatus allowed?
+function isValidTransition(currentStatus, newStatus) {
+  const allowedStatuses = STATUS_TRANSITIONS[currentStatus] || [];
+  return allowedStatuses.includes(newStatus);
+}
+
+// Change the status of one request, following all the rules.
+function changeStatus(referenceNumber, newStatus) {
+  const requests = getRequests();
+  const request = requests.find(function (item) {
+    return item.referenceNumber === referenceNumber;
+  });
+
+  // Rule 0: the request must exist.
+  if (!request) {
+    showMessage("registrar-message", "error", "Request " + referenceNumber + " was not found.");
+    return;
+  }
+
+  // Rule 1: the move must follow the allowed status flow.
+  // This also blocks claiming unless the status is "Ready for Pickup".
+  if (!isValidTransition(request.status, newStatus)) {
+    showMessage(
+      "registrar-message",
+      "error",
+      "Cannot change " + request.referenceNumber + " from " + request.status +
+      " to " + newStatus + "."
+    );
+    return;
+  }
+
+  // Rule 2: rejecting needs a reason.
+  if (newStatus === "Rejected") {
+    const reason = window.prompt("Enter the reason for rejecting " + request.referenceNumber + ":");
+
+    if (reason === null || reason.trim() === "") {
+      showMessage("registrar-message", "error", "A rejection reason is required. The request was not rejected.");
+      return;
+    }
+
+    request.rejectionReason = reason.trim();
+  }
+
+  // Rule 3: claiming saves today's date as the claim date.
+  if (newStatus === "Claimed") {
+    request.claimDate = toDateString(new Date());
+  }
+
+  request.status = newStatus;
+  saveRequests(requests);
+
+  showMessage(
+    "registrar-message",
+    "success",
+    request.referenceNumber + " is now " + newStatus + "."
+  );
+  renderRegistrarTable();
+}
+
+// ===== Action buttons =====
+
+// Build the buttons for one request. Only allowed moves get a button.
+function getActionButtons(request) {
+  const allowedStatuses = STATUS_TRANSITIONS[request.status] || [];
+
+  if (allowedStatuses.length === 0) {
+    return "--";   // Claimed and Rejected are final
+  }
+
+  const buttonStyles = {
+    "Processing": { label: "Start Processing", cssClass: "btn-process" },
+    "Ready for Pickup": { label: "Mark Ready", cssClass: "btn-ready" },
+    "Claimed": { label: "Mark Claimed", cssClass: "btn-claim" },
+    "Rejected": { label: "Reject", cssClass: "btn-reject" }
+  };
+
+  let buttons = "";
+
+  allowedStatuses.forEach(function (status) {
+    const style = buttonStyles[status];
+    buttons += '<button type="button" class="btn btn-small ' + style.cssClass + '"' +
+      ' data-reference="' + escapeHtml(request.referenceNumber) + '"' +
+      ' data-status="' + status + '">' + style.label + "</button>";
+  });
+
+  return buttons;
+}
+
+// One click listener for the whole table (event delegation).
+function handleTableClick(event) {
+  const button = event.target.closest("button[data-status]");
+
+  if (!button) {
+    return;   // the click was not on an action button
+  }
+
+  changeStatus(button.dataset.reference, button.dataset.status);
+}
+
 // ===== Registrar table =====
 function renderRegistrarTable() {
   const requests = getRequests();
@@ -101,6 +202,12 @@ function renderRegistrarTable() {
     // "Ready for Pickup" -> "badge-ready-for-pickup"
     const badgeClass = "badge-" + request.status.toLowerCase().replace(/ /g, "-");
 
+    // Show the rejection reason under the badge for rejected requests.
+    let reasonHtml = "";
+    if (request.status === "Rejected" && request.rejectionReason) {
+      reasonHtml = '<span class="reject-reason">Reason: ' + escapeHtml(request.rejectionReason) + "</span>";
+    }
+
     rows += "<tr>" +
       "<td>" + escapeHtml(request.referenceNumber) + "</td>" +
       "<td>" + escapeHtml(request.studentName) + "</td>" +
@@ -109,10 +216,10 @@ function renderRegistrarTable() {
       "<td>" + escapeHtml(request.documentType) + "</td>" +
       "<td>" + escapeHtml(request.purpose) + "</td>" +
       "<td>" + formatDate(request.dateRequested) + "</td>" +
-      '<td><span class="badge ' + badgeClass + '">' + escapeHtml(request.status) + "</span></td>" +
+      '<td><span class="badge ' + badgeClass + '">' + escapeHtml(request.status) + "</span>" + reasonHtml + "</td>" +
       "<td>" + formatDate(request.expectedReleaseDate) + "</td>" +
       "<td>" + formatDate(request.claimDate) + "</td>" +
-      "<td>--</td>" +   // action buttons are added in Step 7
+      "<td>" + getActionButtons(request) + "</td>" +
       "</tr>";
   });
 
@@ -122,5 +229,6 @@ function renderRegistrarTable() {
 // ===== Start the app =====
 documentTypeSelect.addEventListener("change", updatePreview);
 requestForm.addEventListener("submit", handleRequestSubmit);
+tableBody.addEventListener("click", handleTableClick);
 
 renderRegistrarTable();   // show saved requests when the page loads or refreshes
