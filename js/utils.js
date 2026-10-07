@@ -91,3 +91,17 @@ const STATUS_TRANSITIONS = {
 function isValidReferenceFormat(text) {
   return /^REQ-\d{4}-\d{4}$/.test(text);
 }
+
+// Calculate the expected release date text (e.g. "2026-10-09") for a document type.
+// Counting starts the day after fromDate and skips weekends.
+function getExpectedReleaseDate(documentType, fromDate) {
+  const documentInfo = DOCUMENT_TYPES[documentType];
+  return toDateString(addWorkingDays(fromDate, documentInfo.processingDays));
+}
+
+// Find one request by its reference number. Returns undefined if not found.
+function findRequestByReference(requests, referenceNumber) {
+  return requests.find(function (request) {
+    return request.referenceNumber === referenceNumber;
+  });
+}

@@ -7,6 +7,7 @@ const documentTypeSelect = document.getElementById("document-type");
 const feePreview = document.getElementById("fee-preview");
 const releasePreview = document.getElementById("release-preview");
 const tableBody = document.getElementById("request-table-body");
+
 // Registrar search and filter elements
 const searchInput = document.getElementById("search-input");
 const filterStatus = document.getElementById("filter-status");
@@ -17,11 +18,32 @@ const resultCount = document.getElementById("result-count");
 const statusSummary = document.getElementById("status-summary");
 const documentSummary = document.getElementById("document-summary");
 
+// Student lookup elements
+const lookupForm = document.getElementById("lookup-form");
+const lookupInput = document.getElementById("lookup-reference");
+const lookupResult = document.getElementById("lookup-result");
+const resultStatus = document.getElementById("result-status");
+const resultRelease = document.getElementById("result-release");
+const resultFee = document.getElementById("result-fee");
+
+// ===== Constants =====
+
 // The ids of the form fields (used to clear and mark errors).
 const FORM_FIELD_IDS = ["student-name", "student-id", "course", "document-type", "purpose"];
 
 // A student cannot send the same document again while a request is in these statuses.
 const ACTIVE_STATUSES = ["Submitted", "Processing"];
+
+// The five statuses in their normal order (taken from the transition table).
+const STATUS_LIST = Object.keys(STATUS_TRANSITIONS);
+
+// The label and color class of the action button for each target status.
+const ACTION_BUTTONS = {
+  "Processing": { label: "Start Processing", cssClass: "btn-process" },
+  "Ready for Pickup": { label: "Mark Ready", cssClass: "btn-ready" },
+  "Claimed": { label: "Mark Claimed", cssClass: "btn-claim" },
+  "Rejected": { label: "Reject", cssClass: "btn-reject" }
+};
 
 // ===== Small helpers =====
 
@@ -40,9 +62,21 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// "Ready for Pickup" -> "badge-ready-for-pickup"
+function getBadgeClass(status) {
+  return "badge-" + status.toLowerCase().replace(/ /g, "-");
+}
+
+// Redraw everything that depends on the saved requests.
+function refreshPage() {
+  renderRegistrarTable();
+  renderSummary();
+}
+
 // ===== Fee and release date preview =====
 function updatePreview() {
-  const documentInfo = DOCUMENT_TYPES[documentTypeSelect.value];
+  const documentType = documentTypeSelect.value;
+  const documentInfo = DOCUMENT_TYPES[documentType];
 
   if (!documentInfo) {
     feePreview.textContent = "--";
@@ -50,9 +84,8 @@ function updatePreview() {
     return;
   }
 
-  const releaseDate = addWorkingDays(new Date(), documentInfo.processingDays);
   feePreview.textContent = formatFee(documentInfo.fee);
-  releasePreview.textContent = formatDate(toDateString(releaseDate));
+  releasePreview.textContent = formatDate(getExpectedReleaseDate(documentType, new Date()));
 }
 
 // ===== Form validation =====
@@ -133,7 +166,7 @@ function validateRequestForm(data, requests) {
     addError("purpose", "Purpose must be 5 to 200 characters long.");
   }
 
-  // Duplicate check. Only done when the ID and document type are already valid.
+  // Duplicate check. Only done when the other fields are already valid.
   if (errors.length === 0 && hasDuplicateRequest(requests, data.studentId, data.documentType)) {
     addError(
       "document-type",
@@ -156,6 +189,28 @@ function showValidationErrors(errors) {
 }
 
 // ===== Create a request =====
+
+// Build a new request object from valid form data.
+function buildNewRequest(formData, requests) {
+  const today = new Date();
+
+  return {
+    referenceNumber: generateReferenceNumber(requests),
+    studentName: formData.studentName,
+    studentId: formData.studentId,
+    course: formData.course,
+    documentType: formData.documentType,
+    purpose: formData.purpose,
+    dateRequested: toDateString(today),
+    status: "Submitted",
+    expectedReleaseDate: getExpectedReleaseDate(formData.documentType, today),
+    claimDate: "",
+    rejectionReason: "",
+    fee: DOCUMENT_TYPES[formData.documentType].fee
+  };
+}
+
+// Runs when the student submits the request form.
 function handleRequestSubmit(event) {
   event.preventDefault();   // stop the page from reloading
   clearFieldErrors();
@@ -170,24 +225,7 @@ function handleRequestSubmit(event) {
     return;
   }
 
-  const documentInfo = DOCUMENT_TYPES[formData.documentType];
-  const today = new Date();
-
-  const newRequest = {
-    referenceNumber: generateReferenceNumber(requests),
-    studentName: formData.studentName,
-    studentId: formData.studentId,
-    course: formData.course,
-    documentType: formData.documentType,
-    purpose: formData.purpose,
-    dateRequested: toDateString(today),
-    status: "Submitted",
-    expectedReleaseDate: toDateString(addWorkingDays(today, documentInfo.processingDays)),
-    claimDate: "",
-    rejectionReason: "",
-    fee: documentInfo.fee
-  };
-
+  const newRequest = buildNewRequest(formData, requests);
   requests.push(newRequest);
   saveRequests(requests);
 
@@ -200,9 +238,65 @@ function handleRequestSubmit(event) {
 
   requestForm.reset();
   updatePreview();          // reset() does not trigger the change event
-  renderRegistrarTable();
-  renderSummary();
+  refreshPage();
+}
 
+// ===== Student status lookup =====
+
+// Hide the result box and clear its text.
+function hideLookupResult() {
+  lookupResult.classList.add("hidden");
+  resultStatus.textContent = "";
+  resultRelease.textContent = "";
+  resultFee.textContent = "";
+}
+
+// Show ONLY status, expected release date, and fee.
+// Names, student ID, course, purpose, claim date, and rejection reason are NOT shown.
+function showLookupResult(request) {
+  resultStatus.textContent = request.status;
+  resultStatus.className = "badge " + getBadgeClass(request.status);
+  resultRelease.textContent = formatDate(request.expectedReleaseDate);
+  resultFee.textContent = formatFee(request.fee);
+
+  lookupResult.classList.remove("hidden");
+}
+
+// Look up one request by reference number.
+function handleLookup(event) {
+  event.preventDefault();   // stop the page from reloading
+  hideLookupResult();       // clear any old result first
+
+  // Trim spaces and ignore upper/lower case ("req-2026-0001" works too).
+  const reference = lookupInput.value.trim().toUpperCase();
+
+  // Check 1: not empty.
+  if (reference === "") {
+    showMessage("lookup-message", "error", "Please enter your reference number.");
+    return;
+  }
+
+  // Check 2: correct format.
+  if (!isValidReferenceFormat(reference)) {
+    showMessage(
+      "lookup-message",
+      "error",
+      "Invalid reference number format. It should look like REQ-2026-0001."
+    );
+    return;
+  }
+
+  // Check 3: the request must exist.
+  const request = findRequestByReference(getRequests(), reference);
+
+  if (!request) {
+    showMessage("lookup-message", "error", "No request was found for " + reference + ".");
+    return;
+  }
+
+  // Found: show the three allowed details.
+  showMessage("lookup-message", "success", "Request " + reference + " found.");
+  showLookupResult(request);
 }
 
 // ===== Status rules =====
@@ -213,12 +307,22 @@ function isValidTransition(currentStatus, newStatus) {
   return allowedStatuses.includes(newStatus);
 }
 
+// Ask the registrar for a rejection reason.
+// Returns the reason text, or "" if they cancelled or typed nothing.
+function askForRejectionReason(referenceNumber) {
+  const reason = window.prompt("Enter the reason for rejecting " + referenceNumber + ":");
+
+  if (reason === null) {
+    return "";
+  }
+
+  return reason.trim();
+}
+
 // Change the status of one request, following all the rules.
 function changeStatus(referenceNumber, newStatus) {
   const requests = getRequests();
-  const request = requests.find(function (item) {
-    return item.referenceNumber === referenceNumber;
-  });
+  const request = findRequestByReference(requests, referenceNumber);
 
   // Rule 0: the request must exist.
   if (!request) {
@@ -240,14 +344,14 @@ function changeStatus(referenceNumber, newStatus) {
 
   // Rule 2: rejecting needs a reason.
   if (newStatus === "Rejected") {
-    const reason = window.prompt("Enter the reason for rejecting " + request.referenceNumber + ":");
+    const reason = askForRejectionReason(request.referenceNumber);
 
-    if (reason === null || reason.trim() === "") {
+    if (reason === "") {
       showMessage("registrar-message", "error", "A rejection reason is required. The request was not rejected.");
       return;
     }
 
-    request.rejectionReason = reason.trim();
+    request.rejectionReason = reason;
   }
 
   // Rule 3: claiming saves today's date as the claim date.
@@ -258,13 +362,8 @@ function changeStatus(referenceNumber, newStatus) {
   request.status = newStatus;
   saveRequests(requests);
 
-  showMessage(
-    "registrar-message",
-    "success",
-    request.referenceNumber + " is now " + newStatus + "."
-  );
-  renderRegistrarTable();
-   renderSummary();
+  showMessage("registrar-message", "success", request.referenceNumber + " is now " + newStatus + ".");
+  refreshPage();
 }
 
 // ===== Action buttons =====
@@ -277,17 +376,10 @@ function getActionButtons(request) {
     return "--";   // Claimed and Rejected are final
   }
 
-  const buttonStyles = {
-    "Processing": { label: "Start Processing", cssClass: "btn-process" },
-    "Ready for Pickup": { label: "Mark Ready", cssClass: "btn-ready" },
-    "Claimed": { label: "Mark Claimed", cssClass: "btn-claim" },
-    "Rejected": { label: "Reject", cssClass: "btn-reject" }
-  };
-
   let buttons = "";
 
   allowedStatuses.forEach(function (status) {
-    const style = buttonStyles[status];
+    const style = ACTION_BUTTONS[status];
     buttons += '<button type="button" class="btn btn-small ' + style.cssClass + '"' +
       ' data-reference="' + escapeHtml(request.referenceNumber) + '"' +
       ' data-status="' + status + '">' + style.label + "</button>";
@@ -307,10 +399,87 @@ function handleTableClick(event) {
   changeStatus(button.dataset.reference, button.dataset.status);
 }
 
-// ===== Summary =====
+// ===== Registrar search and filters =====
 
-// The five statuses in their normal order (taken from the transition table).
-const STATUS_LIST = Object.keys(STATUS_TRANSITIONS);
+// Return only the requests that match the search text AND both filters.
+function getFilteredRequests(requests) {
+  const searchText = searchInput.value.trim().toLowerCase();
+  const statusFilter = filterStatus.value;
+  const documentFilter = filterDocument.value;
+
+  return requests.filter(function (request) {
+    // Search: matches name, student ID, or reference number (partial match is fine).
+    const matchesSearch =
+      searchText === "" ||
+      request.studentName.toLowerCase().includes(searchText) ||
+      request.studentId.toLowerCase().includes(searchText) ||
+      request.referenceNumber.toLowerCase().includes(searchText);
+
+    // Filters: an empty value means "All".
+    const matchesStatus = statusFilter === "" || request.status === statusFilter;
+    const matchesDocument = documentFilter === "" || request.documentType === documentFilter;
+
+    // A request is shown only if ALL three conditions are true.
+    return matchesSearch && matchesStatus && matchesDocument;
+  });
+}
+
+// Build the text under the filters, e.g. "Showing 2 of 5 requests."
+function updateResultCount(shownCount, totalCount) {
+  if (totalCount === 0) {
+    resultCount.textContent = "";
+    return;
+  }
+  resultCount.textContent = "Showing " + shownCount + " of " + totalCount + " requests.";
+}
+
+// ===== Registrar table =====
+
+// Build one table row (HTML text) for one request.
+function buildRequestRow(request) {
+  // Show the rejection reason under the badge for rejected requests.
+  let reasonHtml = "";
+  if (request.status === "Rejected" && request.rejectionReason) {
+    reasonHtml = '<span class="reject-reason">Reason: ' + escapeHtml(request.rejectionReason) + "</span>";
+  }
+
+  return "<tr>" +
+    "<td>" + escapeHtml(request.referenceNumber) + "</td>" +
+    "<td>" + escapeHtml(request.studentName) + "</td>" +
+    "<td>" + escapeHtml(request.studentId) + "</td>" +
+    "<td>" + escapeHtml(request.course) + "</td>" +
+    "<td>" + escapeHtml(request.documentType) + "</td>" +
+    "<td>" + escapeHtml(request.purpose) + "</td>" +
+    "<td>" + formatDate(request.dateRequested) + "</td>" +
+    '<td><span class="badge ' + getBadgeClass(request.status) + '">' + escapeHtml(request.status) + "</span>" + reasonHtml + "</td>" +
+    "<td>" + formatDate(request.expectedReleaseDate) + "</td>" +
+    "<td>" + formatDate(request.claimDate) + "</td>" +
+    "<td>" + getActionButtons(request) + "</td>" +
+    "</tr>";
+}
+
+// Draw the registrar table from the saved requests, using the search and filters.
+function renderRegistrarTable() {
+  const allRequests = getRequests();
+  const requests = getFilteredRequests(allRequests);
+
+  updateResultCount(requests.length, allRequests.length);
+
+  // Two different empty messages: no data at all, or no match for the search/filters.
+  if (allRequests.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests yet.</td></tr>';
+    return;
+  }
+
+  if (requests.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests match your search or filters.</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = requests.map(buildRequestRow).join("");
+}
+
+// ===== Summary =====
 
 // Count how many requests have each value of a property.
 // Example: countBy(requests, "status", STATUS_LIST) -> { Submitted: 3, Processing: 2, ... }
@@ -353,88 +522,6 @@ function renderSummary() {
   documentSummary.innerHTML = buildSummaryItems(documentCounts);
 }
 
-// ===== Registrar search and filters =====
-
-// Return only the requests that match the search text AND both filters.
-function getFilteredRequests(requests) {
-  const searchText = searchInput.value.trim().toLowerCase();
-  const statusFilter = filterStatus.value;
-  const documentFilter = filterDocument.value;
-
-  return requests.filter(function (request) {
-    // Search: matches name, student ID, or reference number (partial match is fine).
-    const matchesSearch =
-      searchText === "" ||
-      request.studentName.toLowerCase().includes(searchText) ||
-      request.studentId.toLowerCase().includes(searchText) ||
-      request.referenceNumber.toLowerCase().includes(searchText);
-
-    // Filters: an empty value means "All".
-    const matchesStatus = statusFilter === "" || request.status === statusFilter;
-    const matchesDocument = documentFilter === "" || request.documentType === documentFilter;
-
-    // A request is shown only if ALL three conditions are true.
-    return matchesSearch && matchesStatus && matchesDocument;
-  });
-}
-
-// Build the text under the filters, e.g. "Showing 2 of 5 requests."
-function updateResultCount(shownCount, totalCount) {
-  if (totalCount === 0) {
-    resultCount.textContent = "";
-    return;
-  }
-  resultCount.textContent = "Showing " + shownCount + " of " + totalCount + " requests.";
-}
-
-// ===== Registrar table =====
-function renderRegistrarTable() {
-  const allRequests = getRequests();
-  const requests = getFilteredRequests(allRequests);
-
-  updateResultCount(requests.length, allRequests.length);
-
-  // Two different empty messages: no data at all, or no match for the search/filters.
-  if (allRequests.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests yet.</td></tr>';
-    return;
-  }
-
-  if (requests.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests match your search or filters.</td></tr>';
-    return;
-  }
-
-  let rows = "";
-
-  requests.forEach(function (request) {
-    // "Ready for Pickup" -> "badge-ready-for-pickup"
-    const badgeClass = "badge-" + request.status.toLowerCase().replace(/ /g, "-");
-
-    // Show the rejection reason under the badge for rejected requests.
-    let reasonHtml = "";
-    if (request.status === "Rejected" && request.rejectionReason) {
-      reasonHtml = '<span class="reject-reason">Reason: ' + escapeHtml(request.rejectionReason) + "</span>";
-    }
-
-    rows += "<tr>" +
-      "<td>" + escapeHtml(request.referenceNumber) + "</td>" +
-      "<td>" + escapeHtml(request.studentName) + "</td>" +
-      "<td>" + escapeHtml(request.studentId) + "</td>" +
-      "<td>" + escapeHtml(request.course) + "</td>" +
-      "<td>" + escapeHtml(request.documentType) + "</td>" +
-      "<td>" + escapeHtml(request.purpose) + "</td>" +
-      "<td>" + formatDate(request.dateRequested) + "</td>" +
-      '<td><span class="badge ' + badgeClass + '">' + escapeHtml(request.status) + "</span>" + reasonHtml + "</td>" +
-      "<td>" + formatDate(request.expectedReleaseDate) + "</td>" +
-      "<td>" + formatDate(request.claimDate) + "</td>" +
-      "<td>" + getActionButtons(request) + "</td>" +
-      "</tr>";
-  });
-
-  tableBody.innerHTML = rows;
-}
-
 // ===== Start the app =====
 documentTypeSelect.addEventListener("change", updatePreview);
 requestForm.addEventListener("submit", handleRequestSubmit);
@@ -446,4 +533,4 @@ searchInput.addEventListener("input", renderRegistrarTable);
 filterStatus.addEventListener("change", renderRegistrarTable);
 filterDocument.addEventListener("change", renderRegistrarTable);
 
-renderRegistrarTable();   // show saved requests when the page loads or refreshes
+refreshPage();   // show saved requests and summary when the page loads or refreshes
