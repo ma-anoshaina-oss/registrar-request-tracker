@@ -8,6 +8,14 @@ const feePreview = document.getElementById("fee-preview");
 const releasePreview = document.getElementById("release-preview");
 const tableBody = document.getElementById("request-table-body");
 
+// Student lookup elements
+const lookupForm = document.getElementById("lookup-form");
+const lookupInput = document.getElementById("lookup-reference");
+const lookupResult = document.getElementById("lookup-result");
+const resultStatus = document.getElementById("result-status");
+const resultRelease = document.getElementById("result-release");
+const resultFee = document.getElementById("result-fee");
+
 // The ids of the form fields (used to clear and mark errors).
 const FORM_FIELD_IDS = ["student-name", "student-id", "course", "document-type", "purpose"];
 
@@ -194,6 +202,68 @@ function handleRequestSubmit(event) {
   renderRegistrarTable();
 }
 
+// ===== Student status lookup (assigned feature) =====
+
+// Hide the result box and clear its text.
+function hideLookupResult() {
+  lookupResult.classList.add("hidden");
+  resultStatus.textContent = "";
+  resultRelease.textContent = "";
+  resultFee.textContent = "";
+}
+
+// Show ONLY status, expected release date, and fee.
+// Names, student ID, course, purpose, claim date, and rejection reason are NOT shown.
+function showLookupResult(request) {
+  const badgeClass = "badge-" + request.status.toLowerCase().replace(/ /g, "-");
+
+  resultStatus.textContent = request.status;
+  resultStatus.className = "badge " + badgeClass;
+  resultRelease.textContent = formatDate(request.expectedReleaseDate);
+  resultFee.textContent = formatFee(request.fee);
+
+  lookupResult.classList.remove("hidden");
+}
+
+// Look up one request by reference number.
+function handleLookup(event) {
+  event.preventDefault();   // stop the page from reloading
+  hideLookupResult();       // clear any old result first
+
+  // Trim spaces and ignore upper/lower case ("req-2026-0001" works too).
+  const reference = lookupInput.value.trim().toUpperCase();
+
+  // Check 1: not empty.
+  if (reference === "") {
+    showMessage("lookup-message", "error", "Please enter your reference number.");
+    return;
+  }
+
+  // Check 2: correct format.
+  if (!isValidReferenceFormat(reference)) {
+    showMessage(
+      "lookup-message",
+      "error",
+      "Invalid reference number format. It should look like REQ-2026-0001."
+    );
+    return;
+  }
+
+  // Check 3: the request must exist.
+  const request = getRequests().find(function (item) {
+    return item.referenceNumber === reference;
+  });
+
+  if (!request) {
+    showMessage("lookup-message", "error", "No request was found for " + reference + ".");
+    return;
+  }
+
+  // Found: show the three allowed details.
+  showMessage("lookup-message", "success", "Request " + reference + " found.");
+  showLookupResult(request);
+}
+
 // ===== Status rules =====
 
 // Is moving from currentStatus to newStatus allowed?
@@ -337,6 +407,7 @@ function renderRegistrarTable() {
 // ===== Start the app =====
 documentTypeSelect.addEventListener("change", updatePreview);
 requestForm.addEventListener("submit", handleRequestSubmit);
+lookupForm.addEventListener("submit", handleLookup);
 tableBody.addEventListener("click", handleTableClick);
 
 renderRegistrarTable();   // show saved requests when the page loads or refreshes
