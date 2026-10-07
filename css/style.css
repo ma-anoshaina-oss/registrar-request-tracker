@@ -1,0 +1,246 @@
+/* ===== Basic reset and page ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f2f4f8;
+  color: #222;
+  line-height: 1.5;
+}
+
+/* ===== Header and navigation ===== */
+.site-header {
+  background-color: #1f3a68;
+  color: #fff;
+  padding: 16px 24px;
+}
+
+.site-header h1 {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+}
+
+.site-header nav a {
+  color: #fff;
+  text-decoration: none;
+  margin-right: 16px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+
+.site-header nav a:hover {
+  border-bottom-color: #fff;
+}
+
+/* ===== Main layout ===== */
+main {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.card {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.card h2 {
+  margin-top: 0;
+  color: #1f3a68;
+  border-bottom: 2px solid #e3e8f0;
+  padding-bottom: 8px;
+}
+
+/* ===== Forms ===== */
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+input[type="text"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #b8c0cc;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #4a7bd0;
+  border-color: #4a7bd0;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #1f3a68;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: #2c4f8f;
+}
+
+/* Small buttons used in the table (Step 7) */
+.btn-small {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  margin: 2px 2px 2px 0;
+  color: #fff;
+}
+
+.btn-process { background-color: #2b7bb9; }
+.btn-ready   { background-color: #2e8b57; }
+.btn-claim   { background-color: #6a4c9c; }
+.btn-reject  { background-color: #c0392b; }
+
+/* ===== Preview and result boxes ===== */
+.preview-box {
+  background-color: #eef3fb;
+  border-left: 4px solid #1f3a68;
+  padding: 10px 14px;
+  margin: 14px 0;
+  border-radius: 4px;
+}
+
+.preview-box p {
+  margin: 4px 0;
+}
+
+/* ===== Messages (success / error) ===== */
+.message {
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  font-weight: bold;
+}
+
+.message.success {
+  background-color: #e3f6e8;
+  color: #1e6b36;
+  border: 1px solid #a6d9b5;
+}
+
+.message.error {
+  background-color: #fde8e6;
+  color: #a8281c;
+  border: 1px solid #f1b3ad;
+}
+
+.hidden {
+  display: none;
+}
+
+/* ===== Registrar toolbar (search and filters) ===== */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.toolbar input,
+.toolbar select {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ===== Table ===== */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  border: 1px solid #d5dbe5;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background-color: #1f3a68;
+  color: #fff;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f7f9fc;
+}
+
+.empty-row {
+  text-align: center;
+  color: #777;
+  padding: 20px;
+}
+
+/* ===== Status badges (used in Step 6 and 7) ===== */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.badge-submitted        { background-color: #7f8c8d; }
+.badge-processing       { background-color: #2b7bb9; }
+.badge-ready-for-pickup { background-color: #2e8b57; }
+.badge-claimed          { background-color: #6a4c9c; }
+.badge-rejected         { background-color: #c0392b; }
+
+/* ===== Summary ===== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summary-list li {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e3e8f0;
+}
+
+/* ===== Footer ===== */
+.site-footer {
+  text-align: center;
+  padding: 16px;
+  color: #666;
+  font-size: 0.85rem;
+}

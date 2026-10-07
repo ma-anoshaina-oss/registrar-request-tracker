@@ -2,10 +2,182 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registrar Document Request Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>Registrar Document Request Tracker</h1>
-  <p>Project setup works.</p>
+
+  <!-- HEADER AND NAVIGATION -->
+  <header class="site-header">
+    <h1>Registrar Document Request Tracker</h1>
+    <nav>
+      <a href="#request-section">Request Form</a>
+      <a href="#lookup-section">Check Status</a>
+      <a href="#registrar-section">Registrar List</a>
+      <a href="#summary-section">Summary</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- 1. STUDENT REQUEST FORM -->
+    <section id="request-section" class="card">
+      <h2>Student Request Form</h2>
+
+      <div id="request-message" class="message hidden"></div>
+
+      <form id="request-form" novalidate>
+        <div class="form-group">
+          <label for="student-name">Student Name</label>
+          <input type="text" id="student-name" placeholder="e.g. Juan Dela Cruz">
+        </div>
+
+        <div class="form-group">
+          <label for="student-id">Student ID</label>
+          <input type="text" id="student-id" placeholder="e.g. 2026-001">
+        </div>
+
+        <div class="form-group">
+          <label for="course">Course</label>
+          <input type="text" id="course" placeholder="e.g. BSIT">
+        </div>
+
+        <div class="form-group">
+          <label for="document-type">Document Type</label>
+          <select id="document-type">
+            <option value="">-- Select a document --</option>
+            <option value="Certificate of Enrollment">Certificate of Enrollment</option>
+            <option value="Transcript of Records">Transcript of Records</option>
+            <option value="Good Moral Certificate">Good Moral Certificate</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="purpose">Purpose</label>
+          <textarea id="purpose" rows="3" placeholder="e.g. Scholarship application"></textarea>
+        </div>
+
+        <!-- Fee and release date preview (filled in by JavaScript in Step 6) -->
+        <div class="preview-box">
+          <p><strong>Fee:</strong> <span id="fee-preview">--</span></p>
+          <p><strong>Expected Release Date:</strong> <span id="release-preview">--</span></p>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit Request</button>
+      </form>
+    </section>
+
+    <!-- 2. STUDENT STATUS LOOKUP -->
+    <section id="lookup-section" class="card">
+      <h2>Student Status Lookup</h2>
+
+      <div id="lookup-message" class="message hidden"></div>
+
+      <form id="lookup-form" novalidate>
+        <div class="form-group">
+          <label for="lookup-reference">Reference Number</label>
+          <input type="text" id="lookup-reference" placeholder="e.g. REQ-2026-0001">
+        </div>
+        <button type="submit" class="btn btn-primary">Check Status</button>
+      </form>
+
+      <!-- Result shows ONLY status, expected release date, and fee -->
+      <div id="lookup-result" class="preview-box hidden">
+        <p><strong>Status:</strong> <span id="result-status"></span></p>
+        <p><strong>Expected Release Date:</strong> <span id="result-release"></span></p>
+        <p><strong>Fee:</strong> <span id="result-fee"></span></p>
+      </div>
+    </section>
+
+    <!-- 3. REGISTRAR REQUEST LIST -->
+    <section id="registrar-section" class="card">
+      <h2>Registrar Request List</h2>
+
+      <div id="registrar-message" class="message hidden"></div>
+
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search name, student ID, or reference no.">
+
+        <select id="filter-status">
+          <option value="">All Statuses</option>
+          <option value="Submitted">Submitted</option>
+          <option value="Processing">Processing</option>
+          <option value="Ready for Pickup">Ready for Pickup</option>
+          <option value="Claimed">Claimed</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+
+        <select id="filter-document">
+          <option value="">All Document Types</option>
+          <option value="Certificate of Enrollment">Certificate of Enrollment</option>
+          <option value="Transcript of Records">Transcript of Records</option>
+          <option value="Good Moral Certificate">Good Moral Certificate</option>
+        </select>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="request-table">
+          <thead>
+            <tr>
+              <th>Reference No.</th>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Course</th>
+              <th>Document Type</th>
+              <th>Purpose</th>
+              <th>Date Requested</th>
+              <th>Status</th>
+              <th>Expected Release</th>
+              <th>Claim Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="request-table-body">
+            <tr>
+              <td colspan="11" class="empty-row">No requests yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. SUMMARY / DASHBOARD -->
+    <section id="summary-section" class="card">
+      <h2>Summary</h2>
+
+      <div class="summary-grid">
+        <div>
+          <h3>Requests per Status</h3>
+          <ul id="status-summary" class="summary-list">
+            <li>Submitted: <strong>0</strong></li>
+            <li>Processing: <strong>0</strong></li>
+            <li>Ready for Pickup: <strong>0</strong></li>
+            <li>Claimed: <strong>0</strong></li>
+            <li>Rejected: <strong>0</strong></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>Requests per Document Type</h3>
+          <ul id="document-summary" class="summary-list">
+            <li>Certificate of Enrollment: <strong>0</strong></li>
+            <li>Transcript of Records: <strong>0</strong></li>
+            <li>Good Moral Certificate: <strong>0</strong></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>IT 415 Midterm Exam - Scenario 4</p>
+  </footer>
+
+  <!-- Load order matters: storage and utils first, app last -->
+  <script src="js/storage.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
