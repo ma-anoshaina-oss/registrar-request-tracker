@@ -264,3 +264,10 @@ tbody tr:nth-child(even) {
   border-color: #c0392b;
   background-color: #fff5f4;
 }
+
+/* ===== Result count under the search and filters ===== */
+.result-count {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: #555;
+}

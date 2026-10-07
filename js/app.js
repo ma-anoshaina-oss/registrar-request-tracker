@@ -7,6 +7,11 @@ const documentTypeSelect = document.getElementById("document-type");
 const feePreview = document.getElementById("fee-preview");
 const releasePreview = document.getElementById("release-preview");
 const tableBody = document.getElementById("request-table-body");
+// Registrar search and filter elements
+const searchInput = document.getElementById("search-input");
+const filterStatus = document.getElementById("filter-status");
+const filterDocument = document.getElementById("filter-document");
+const resultCount = document.getElementById("result-count");
 
 // The ids of the form fields (used to clear and mark errors).
 const FORM_FIELD_IDS = ["student-name", "student-id", "course", "document-type", "purpose"];
@@ -295,12 +300,55 @@ function handleTableClick(event) {
   changeStatus(button.dataset.reference, button.dataset.status);
 }
 
+// ===== Registrar search and filters =====
+
+// Return only the requests that match the search text AND both filters.
+function getFilteredRequests(requests) {
+  const searchText = searchInput.value.trim().toLowerCase();
+  const statusFilter = filterStatus.value;
+  const documentFilter = filterDocument.value;
+
+  return requests.filter(function (request) {
+    // Search: matches name, student ID, or reference number (partial match is fine).
+    const matchesSearch =
+      searchText === "" ||
+      request.studentName.toLowerCase().includes(searchText) ||
+      request.studentId.toLowerCase().includes(searchText) ||
+      request.referenceNumber.toLowerCase().includes(searchText);
+
+    // Filters: an empty value means "All".
+    const matchesStatus = statusFilter === "" || request.status === statusFilter;
+    const matchesDocument = documentFilter === "" || request.documentType === documentFilter;
+
+    // A request is shown only if ALL three conditions are true.
+    return matchesSearch && matchesStatus && matchesDocument;
+  });
+}
+
+// Build the text under the filters, e.g. "Showing 2 of 5 requests."
+function updateResultCount(shownCount, totalCount) {
+  if (totalCount === 0) {
+    resultCount.textContent = "";
+    return;
+  }
+  resultCount.textContent = "Showing " + shownCount + " of " + totalCount + " requests.";
+}
+
 // ===== Registrar table =====
 function renderRegistrarTable() {
-  const requests = getRequests();
+  const allRequests = getRequests();
+  const requests = getFilteredRequests(allRequests);
+
+  updateResultCount(requests.length, allRequests.length);
+
+  // Two different empty messages: no data at all, or no match for the search/filters.
+  if (allRequests.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests yet.</td></tr>';
+    return;
+  }
 
   if (requests.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests yet.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="11" class="empty-row">No requests match your search or filters.</td></tr>';
     return;
   }
 
@@ -337,6 +385,12 @@ function renderRegistrarTable() {
 // ===== Start the app =====
 documentTypeSelect.addEventListener("change", updatePreview);
 requestForm.addEventListener("submit", handleRequestSubmit);
+lookupForm.addEventListener("submit", handleLookup);
 tableBody.addEventListener("click", handleTableClick);
+
+// Registrar search and filters: redraw the table whenever they change.
+searchInput.addEventListener("input", renderRegistrarTable);
+filterStatus.addEventListener("change", renderRegistrarTable);
+filterDocument.addEventListener("change", renderRegistrarTable);
 
 renderRegistrarTable();   // show saved requests when the page loads or refreshes
