@@ -13,6 +13,10 @@ const filterStatus = document.getElementById("filter-status");
 const filterDocument = document.getElementById("filter-document");
 const resultCount = document.getElementById("result-count");
 
+// Summary elements
+const statusSummary = document.getElementById("status-summary");
+const documentSummary = document.getElementById("document-summary");
+
 // The ids of the form fields (used to clear and mark errors).
 const FORM_FIELD_IDS = ["student-name", "student-id", "course", "document-type", "purpose"];
 
@@ -197,6 +201,8 @@ function handleRequestSubmit(event) {
   requestForm.reset();
   updatePreview();          // reset() does not trigger the change event
   renderRegistrarTable();
+  renderSummary();
+
 }
 
 // ===== Status rules =====
@@ -258,6 +264,7 @@ function changeStatus(referenceNumber, newStatus) {
     request.referenceNumber + " is now " + newStatus + "."
   );
   renderRegistrarTable();
+   renderSummary();
 }
 
 // ===== Action buttons =====
@@ -298,6 +305,52 @@ function handleTableClick(event) {
   }
 
   changeStatus(button.dataset.reference, button.dataset.status);
+}
+
+// ===== Summary =====
+
+// The five statuses in their normal order (taken from the transition table).
+const STATUS_LIST = Object.keys(STATUS_TRANSITIONS);
+
+// Count how many requests have each value of a property.
+// Example: countBy(requests, "status", STATUS_LIST) -> { Submitted: 3, Processing: 2, ... }
+// Every name in "names" starts at 0, so categories with no requests still show 0.
+function countBy(requests, property, names) {
+  const counts = {};
+
+  names.forEach(function (name) {
+    counts[name] = 0;
+  });
+
+  requests.forEach(function (request) {
+    if (counts[request[property]] !== undefined) {
+      counts[request[property]]++;
+    }
+  });
+
+  return counts;
+}
+
+// Turn a counts object into list items, e.g. <li>Submitted: <strong>3</strong></li>
+function buildSummaryItems(counts) {
+  let items = "";
+
+  Object.keys(counts).forEach(function (name) {
+    items += "<li>" + escapeHtml(name) + ": <strong>" + counts[name] + "</strong></li>";
+  });
+
+  return items;
+}
+
+// Redraw both summary lists from the saved requests.
+function renderSummary() {
+  const requests = getRequests();
+
+  const statusCounts = countBy(requests, "status", STATUS_LIST);
+  const documentCounts = countBy(requests, "documentType", Object.keys(DOCUMENT_TYPES));
+
+  statusSummary.innerHTML = buildSummaryItems(statusCounts);
+  documentSummary.innerHTML = buildSummaryItems(documentCounts);
 }
 
 // ===== Registrar search and filters =====
